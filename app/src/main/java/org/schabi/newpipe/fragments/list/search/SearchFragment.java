@@ -723,9 +723,9 @@ public class SearchFragment extends BaseListFragment<SearchInfo, ListExtractor.I
                 .getRelatedSearches(query, similarQueryLimit, 25)
                 .toObservable()
                 .map(searchHistoryEntries ->
-                    searchHistoryEntries.stream()
-                            .map(entry -> new SuggestionItem(true, entry))
-                            .collect(Collectors.toList()));
+                        searchHistoryEntries.stream()
+                                .map(entry -> new SuggestionItem(true, entry))
+                                .collect(Collectors.toList()));
     }
 
     private Observable<List<SuggestionItem>> getRemoteSuggestionsObservable(final String query) {
@@ -760,14 +760,14 @@ public class SearchFragment extends BaseListFragment<SearchInfo, ListExtractor.I
 
                     if (showLocalSuggestions && shallShowRemoteSuggestionsNow) {
                         return Observable.zip(
-                                getLocalSuggestionsObservable(query, 3),
-                                getRemoteSuggestionsObservable(query),
-                                (local, remote) -> {
-                                    remote.removeIf(remoteItem -> local.stream().anyMatch(
-                                            localItem -> localItem.equals(remoteItem)));
-                                    local.addAll(remote);
-                                    return local;
-                                })
+                                        getLocalSuggestionsObservable(query, 3),
+                                        getRemoteSuggestionsObservable(query),
+                                        (local, remote) -> {
+                                            remote.removeIf(remoteItem -> local.stream().anyMatch(
+                                                    localItem -> localItem.equals(remoteItem)));
+                                            local.addAll(remote);
+                                            return local;
+                                        })
                                 .materialize();
                     } else if (showLocalSuggestions) {
                         return getLocalSuggestionsObservable(query, 25)
@@ -792,12 +792,12 @@ public class SearchFragment extends BaseListFragment<SearchInfo, ListExtractor.I
                             } else if (listNotification.isOnError()
                                     && listNotification.getError() != null
                                     && !ExceptionUtils.isInterruptedCaused(
-                                            listNotification.getError())) {
+                                    listNotification.getError())) {
                                 showSnackBarError(new ErrorInfo(listNotification.getError(),
                                         UserAction.GET_SUGGESTIONS, searchString, serviceId));
                             }
                         }, throwable -> showSnackBarError(new ErrorInfo(
-                            throwable, UserAction.GET_SUGGESTIONS, searchString, serviceId)));
+                                throwable, UserAction.GET_SUGGESTIONS, searchString, serviceId)));
     }
 
     @Override
@@ -845,7 +845,8 @@ public class SearchFragment extends BaseListFragment<SearchInfo, ListExtractor.I
         disposables.add(historyRecordManager.onSearched(serviceId, theSearchString)
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
-                        ignored -> { },
+                        ignored -> {
+                        },
                         throwable -> showSnackBarError(new ErrorInfo(throwable, UserAction.SEARCHED,
                                 theSearchString, serviceId))
                 ));
@@ -861,9 +862,9 @@ public class SearchFragment extends BaseListFragment<SearchInfo, ListExtractor.I
             searchDisposable.dispose();
         }
         searchDisposable = ExtractorHelper.searchFor(serviceId,
-                searchString,
-                Arrays.asList(contentFilter),
-                sortFilter)
+                        searchString,
+                        Arrays.asList(contentFilter),
+                        sortFilter)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnEvent((searchResult, throwable) -> isLoading.set(false))
@@ -882,11 +883,11 @@ public class SearchFragment extends BaseListFragment<SearchInfo, ListExtractor.I
             searchDisposable.dispose();
         }
         searchDisposable = ExtractorHelper.getMoreSearchItems(
-                serviceId,
-                searchString,
-                asList(contentFilter),
-                sortFilter,
-                nextPage)
+                        serviceId,
+                        searchString,
+                        asList(contentFilter),
+                        sortFilter,
+                        nextPage)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnEvent((nextItemsResult, throwable) -> isLoading.set(false))
@@ -991,6 +992,8 @@ public class SearchFragment extends BaseListFragment<SearchInfo, ListExtractor.I
         lastSearchedString = searchString;
         nextPage = result.getNextPage();
 
+        filterRubbishContent(result);
+
         if (infoListAdapter.getItemsList().isEmpty()) {
             if (!result.getRelatedItems().isEmpty()) {
                 infoListAdapter.addInfoItemList(result.getRelatedItems());
@@ -1002,6 +1005,10 @@ public class SearchFragment extends BaseListFragment<SearchInfo, ListExtractor.I
         }
 
         super.handleResult(result);
+    }
+
+    private void filterRubbishContent(final SearchInfo result) {
+        new FilterNoiseContentByUploader(result).filter();
     }
 
     private void handleSearchSuggestion() {
@@ -1038,7 +1045,7 @@ public class SearchFragment extends BaseListFragment<SearchInfo, ListExtractor.I
     @Override
     public void handleNextItems(final ListExtractor.InfoItemsPage<?> result) {
         showListFooter(false);
-        infoListAdapter.addInfoItemList(result.getItems());
+        infoListAdapter.addInfoItemList(filterRubbishContentFromNextItems(result.getItems()));
         nextPage = result.getNextPage();
 
         if (!result.getErrors().isEmpty()) {
@@ -1049,6 +1056,18 @@ public class SearchFragment extends BaseListFragment<SearchInfo, ListExtractor.I
                     serviceId));
         }
         super.handleNextItems(result);
+    }
+
+    private List<? extends InfoItem> filterRubbishContentFromNextItems(
+            final List<? extends InfoItem> items) {
+        if (items == null) {
+            return items;
+        }
+
+        final List<? extends InfoItem> filtered = new ArrayList<>(items.size());
+        new FilterNoiseContentByUploader().filterItems(items, filtered);
+
+        return filtered;
     }
 
     @Override
